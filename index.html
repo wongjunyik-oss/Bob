@@ -1,30 +1,22 @@
-<script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
-<script>
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, 500/500, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(500,500);
-  document.body.appendChild(renderer.domElement);
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mini ChatGPT</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    #chat-container { width: 400px; background: #222; padding: 20px; border-radius: 10px; }
+    #messages { height: 300px; overflow-y: auto; border: 1px solid #555; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+    input { width: calc(100% - 60px); padding: 5px; border-radius: 5px; border: none; }
+    button { padding: 5px 10px; border-radius: 5px; border: none; background: #0af; color: #fff; cursor: pointer; }
+    .user { color: #0f0; margin-bottom: 5px; }
+    .ai { color: #0ff; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="messages"></div>
+    <input type="text" id="question" placeholder="Ask me something..." />
+    <button id="askBtn">Ask</button>
+  </div>
 
-  // Player: simple box (later replace with human model)
-  const geometry = new THREE.BoxGeometry(1,2,1);
-  const material = new THREE.MeshBasicMaterial({color:0x00ff00});
-  const player = new THREE.Mesh(geometry, material);
-  scene.add(player);
-
-  // Simple floor
-  const floorGeometry = new THREE.PlaneGeometry(20,20);
-  const floorMaterial = new THREE.MeshBasicMaterial({color:0x555555, side:THREE.DoubleSide});
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = Math.PI/2;
-  scene.add(floor);
-
-  camera.position.set(0,5,5);
-  camera.lookAt(player.position);
-
-  function animate(){
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-  }
-  animate();
-</script>
+  <script>
