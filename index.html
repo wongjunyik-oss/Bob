@@ -1,88 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Bob the Killer</title>
-  <style>
-    body { margin:0; overflow:hidden; background:#111; }
-    #bob { width:40px; height:40px; background:red; position:absolute; }
-    .survivor { width:40px; height:40px; background:lime; position:absolute; }
-    #score { position:fixed; top:10px; left:10px; color:white; font-size:24px; }
-  </style>
-</head>
-<body>
-<div id="bob"></div>
-<div id="score">Score: 0</div>
-
+<script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
 <script>
-let bob = document.getElementById("bob");
-let scoreEl = document.getElementById("score");
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, 500/500, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(500,500);
+  document.body.appendChild(renderer.domElement);
 
-let bobX = 200, bobY = 200;
-let score = 0;
+  // Player: simple box (later replace with human model)
+  const geometry = new THREE.BoxGeometry(1,2,1);
+  const material = new THREE.MeshBasicMaterial({color:0x00ff00});
+  const player = new THREE.Mesh(geometry, material);
+  scene.add(player);
 
-// Create survivors
-let survivors = [];
-for (let i=0; i<3; i++) {
-  let s = document.createElement("div");
-  s.className = "survivor";
-  s.style.left = Math.random()*(window.innerWidth-40) + "px";
-  s.style.top = Math.random()*(window.innerHeight-40) + "px";
-  document.body.appendChild(s);
-  survivors.push({el: s, x: parseInt(s.style.left), y: parseInt(s.style.top)});
-}
+  // Simple floor
+  const floorGeometry = new THREE.PlaneGeometry(20,20);
+  const floorMaterial = new THREE.MeshBasicMaterial({color:0x555555, side:THREE.DoubleSide});
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = Math.PI/2;
+  scene.add(floor);
 
-// Move Bob
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowRight") bobX += 10;
-  if (e.key === "ArrowLeft") bobX -= 10;
-  if (e.key === "ArrowUp") bobY -= 10;
-  if (e.key === "ArrowDown") bobY += 10;
+  camera.position.set(0,5,5);
+  camera.lookAt(player.position);
 
-  // Keep inside screen
-  bobX = Math.max(0, Math.min(window.innerWidth-40, bobX));
-  bobY = Math.max(0, Math.min(window.innerHeight-40, bobY));
-
-  bob.style.left = bobX + "px";
-  bob.style.top = bobY + "px";
-});
-
-// Move survivors randomly
-function moveSurvivors() {
-  for (let s of survivors) {
-    let dx = Math.floor(Math.random()*3) - 1; // -1,0,1
-    let dy = Math.floor(Math.random()*3) - 1;
-    s.x += dx * 10;
-    s.y += dy * 10;
-
-    // Keep inside screen
-    s.x = Math.max(0, Math.min(window.innerWidth-40, s.x));
-    s.y = Math.max(0, Math.min(window.innerHeight-40, s.y));
-
-    s.el.style.left = s.x + "px";
-    s.el.style.top = s.y + "px";
+  function animate(){
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
   }
-}
-
-// Check collision (Bob catches survivors)
-function checkCollision() {
-  for (let s of survivors) {
-    if (Math.abs(bobX - s.x) < 40 && Math.abs(bobY - s.y) < 40) {
-      score++;
-      // Respawn survivor at random location
-      s.x = Math.random()*(window.innerWidth-40);
-      s.y = Math.random()*(window.innerHeight-40);
-      s.el.style.left = s.x + "px";
-      s.el.style.top = s.y + "px";
-    }
-  }
-}
-
-// Game loop
-setInterval(() => {
-  moveSurvivors();
-  checkCollision();
-  scoreEl.innerText = "Score: " + score;
-}, 200);
+  animate();
 </script>
-</body>
-</html>
