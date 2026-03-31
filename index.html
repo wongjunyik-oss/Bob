@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://github.io"></script>
+    <title>Ragdoll Fighter</title>
+</head>
+<body>
+    <div id="status">Loading Ragdoll Game...</div>
+    <div id="pygbag"></div>
+    <script>
+        // This tells the browser to run your main.py using the Pygame-Web engine
+        window.onload = async () => {
+            await pygbag.start("main.py");
+        };
+    </script>
+</body>
+</html>
