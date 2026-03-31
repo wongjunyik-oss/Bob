@@ -1,87 +1,107 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Mini ChatGPT (Real AI)</title>
-  <style>
-    body { font-family:sans-serif; background:#111; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
-    #chat-container { width:450px; background:#222; padding:20px; border-radius:10px; }
-    #messages { height:300px; overflow-y:auto; border:1px solid #555; padding:10px; margin-bottom:10px; border-radius:5px; }
-    input, textarea { width:100%; padding:5px; border-radius:5px; border:none; margin-top:5px; }
-    button { padding:5px 10px; border-radius:5px; border:none; background:#0af; color:#fff; cursor:pointer; margin-top:5px; }
-    .user { color:#0f0; margin-bottom:5px; }
-    .ai { color:#0ff; margin-bottom:5px; }
-  </style>
-</head>
-<body>
-  <div id="chat-container">
-    <div id="messages"></div>
-    <input type="text" id="question" placeholder="Ask me something..." />
-    <button id="askBtn">Ask</button>
-    <textarea id="codeInput" placeholder="Paste code here if you want edits..." rows="5"></textarea>
-    <input type="text" id="editInstruction" placeholder="What do you want to change in the code?" />
-    <button id="editBtn">Edit Code</button>
-  </div>
+import pygame
+import pymunk
+import pymunk.pygame_util
+import random
 
-  <script>
-    const messages = document.getElementById('messages');
-    const questionInput = document.getElementById('question');
-    const askBtn = document.getElementById('askBtn');
-    const codeInput = document.getElementById('codeInput');
-    const editInstruction = document.getElementById('editInstruction');
-    const editBtn = document.getElementById('editBtn');
+# --- CONFIGURATION ---
+WIDTH, HEIGHT = 800, 600
+FPS = 60
 
-    function addMessage(text, cls){
-      const div = document.createElement('div');
-      div.className = cls;
-      div.innerText = text;
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
-    }
+class Ragdoll:
+    def __init__(self, space, pos, color, is_player=True):
+        self.space = space
+        self.color = color
+        self.is_player = is_player
+        
+        # 1. Create Core Body (Torso)
+        self.torso = self._add_box(pos, (20, 40), 1.0)
+        # 2. Create Head
+        self.head = self._add_circle((pos[0], pos[1]-35), 10, 0.5)
+        self._connect(self.torso, self.head, (0, -20), (0, 10))
+        
+        # 3. Create Arms (Limbs)
+        self.r_arm = self._add_box((pos[0]+25, pos[1]-10), (25, 10), 0.5)
+        self._connect(self.torso, self.r_arm, (10, -15), (-12, 0))
+        self.l_arm = self._add_box((pos[0]-25, pos[1]-10), (25, 10), 0.5)
+        self._connect(self.torso, self.l_arm, (-10, -15), (12, 0))
 
-    async function askOpenAI(prompt){
-      const apiKey = "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
+    def _add_box(self, pos, size, mass):
+        body = pymunk.Body(mass, pymunk.moment_for_box(mass, size))
+        body.position = pos
+        shape = pymunk.Poly.create_box(body, size)
+        shape.friction, shape.color = 0.5, self.color
+        self.space.add(body, shape)
+        return body
 
-"; 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "Authorization":"Bearer " + apiKey
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [{role:"user", content: prompt}],
-          max_tokens: 300
-        })
-      });
-      const data = await response.json();
-      return data.choices[0].message.content;
-    }
+    def _add_circle(self, pos, radius, mass):
+        body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, radius))
+        body.position = pos
+        shape = pymunk.Circle(body, radius)
+        shape.friction, shape.color = 0.5, self.color
+        self.space.add(body, shape)
+        return body
 
-    askBtn.addEventListener("click", async ()=>{
-      const question = questionInput.value.trim();
-      if(!question) return;
-      addMessage("You: " + question, "user");
-      addMessage("AI: ...", "ai");
-      const answer = await askOpenAI(question);
-      messages.lastChild.innerText = "AI: " + answer;
-      questionInput.value = "";
-    });
+    def _connect(self, b1, b2, a1, a2):
+        self.space.add(pymunk.PivotJoint(b1, b2, b1.local_to_world(a1)))
+        self.space.add(pymunk.RotaryLimitJoint(b1, b2, -0.6, 0.6))
 
-    questionInput.addEventListener("keypress", e=>{
-      if(e.key === "Enter") askBtn.click();
-    });
+    def move(self, direction):
+        # Applies force to the torso for horizontal movement
+        self.torso.apply_impulse_at_local_point((direction * 400, -150))
 
-    editBtn.addEventListener("click", async ()=>{
-      const code = codeInput.value.trim();
-      const instruction = editInstruction.value.trim();
-      if(!code || !instruction) return;
-      addMessage("You (code edit): " + instruction, "user");
-      addMessage("AI: ...", "ai");
-      const prompt = `Here is my code:\n${code}\n\nPlease apply this instruction: ${instruction}`;
-      const answer = await askOpenAI(prompt);
-      messages.lastChild.innerText = "AI:\n" + answer;
-    });
-  </script>
-</body>
-</html>
+    def punch(self):
+        # Flails an arm forward
+        arm = random.choice([self.r_arm, self.l_arm])
+        force = 600 if self.is_player else -600
+        arm.apply_impulse_at_local_point((force, -100))
+
+def run_game():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    draw_options = pymunk.pygame_util.DrawOptions(screen)
+    
+    space = pymunk.Space()
+    space.gravity = (0, 900)
+    
+    # Static Floor
+    floor = pymunk.Segment(space.static_body, (0, HEIGHT-50), (WIDTH, HEIGHT-50), 5)
+    floor.friction = 1.0
+    space.add(floor)
+    
+    player = Ragdoll(space, (200, 400), (0, 0, 255), True)
+    ai = Ragdoll(space, (600, 400), (255, 0, 0), False)
+    
+    ai_intelligence = 1.0  # Scales up over time
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                player.punch()
+
+        # --- Dual Controls (WASD & Arrows) ---
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]: player.move(-1)
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]: player.move(1)
+
+        # --- "Smarter" AI Logic ---
+        dist_x = player.torso.position.x - ai.torso.position.x
+        # AI moves toward player with increasing speed
+        if abs(dist_x) > 60:
+            dir = 1 if dist_x > 0 else -1
+            ai.move(dir * (0.6 + ai_intelligence * 0.1))
+        
+        # AI punches more frequently as difficulty scales
+        if abs(dist_x) < 90 and random.random() < (0.02 * ai_intelligence):
+            ai.punch()
+            ai_intelligence += 0.002 # Gradually gets "smarter"/harder
+
+        screen.fill((240, 240, 240))
+        space.debug_draw(draw_options)
+        space.step(1/FPS)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+if __name__ == "__main__":
+    run_game()
