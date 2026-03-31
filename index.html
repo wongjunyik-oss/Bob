@@ -1,1 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bob the Killer</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#111; }
+    #bob { width:40px; height:40px; background:red; position:absolute; }
+    .survivor { width:40px; height:40px; background:lime; position:absolute; }
+    #score { position:fixed; top:10px; left:10px; color:white; font-size:24px; }
+  </style>
+</head>
+<body>
+<div id="bob"></div>
+<div id="score">Score: 0</div>
 
+<script>
+let bob = document.getElementById("bob");
+let scoreEl = document.getElementById("score");
+
+let bobX = 200, bobY = 200;
+let score = 0;
+
+// Create survivors
+let survivors = [];
+for (let i=0; i<3; i++) {
+  let s = document.createElement("div");
+  s.className = "survivor";
+  s.style.left = Math.random()*(window.innerWidth-40) + "px";
+  s.style.top = Math.random()*(window.innerHeight-40) + "px";
+  document.body.appendChild(s);
+  survivors.push({el: s, x: parseInt(s.style.left), y: parseInt(s.style.top)});
+}
+
+// Move Bob
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") bobX += 10;
+  if (e.key === "ArrowLeft") bobX -= 10;
+  if (e.key === "ArrowUp") bobY -= 10;
+  if (e.key === "ArrowDown") bobY += 10;
+
+  // Keep inside screen
+  bobX = Math.max(0, Math.min(window.innerWidth-40, bobX));
+  bobY = Math.max(0, Math.min(window.innerHeight-40, bobY));
+
+  bob.style.left = bobX + "px";
+  bob.style.top = bobY + "px";
+});
+
+// Move survivors randomly
+function moveSurvivors() {
+  for (let s of survivors) {
+    let dx = Math.floor(Math.random()*3) - 1; // -1,0,1
+    let dy = Math.floor(Math.random()*3) - 1;
+    s.x += dx * 10;
+    s.y += dy * 10;
+
+    // Keep inside screen
+    s.x = Math.max(0, Math.min(window.innerWidth-40, s.x));
+    s.y = Math.max(0, Math.min(window.innerHeight-40, s.y));
+
+    s.el.style.left = s.x + "px";
+    s.el.style.top = s.y + "px";
+  }
+}
+
+// Check collision (Bob catches survivors)
+function checkCollision() {
+  for (let s of survivors) {
+    if (Math.abs(bobX - s.x) < 40 && Math.abs(bobY - s.y) < 40) {
+      score++;
+      // Respawn survivor at random location
+      s.x = Math.random()*(window.innerWidth-40);
+      s.y = Math.random()*(window.innerHeight-40);
+      s.el.style.left = s.x + "px";
+      s.el.style.top = s.y + "px";
+    }
+  }
+}
+
+// Game loop
+setInterval(() => {
+  moveSurvivors();
+  checkCollision();
+  scoreEl.innerText = "Score: " + score;
+}, 200);
+</script>
+</body>
+</html>
