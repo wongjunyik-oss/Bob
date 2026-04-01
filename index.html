@@ -1,70 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Physics Brawler</title>
+    <title>Ragdoll Brawl</title>
+    <!-- 1. The Physics Engine (Must be at the top) -->
     <script src="https://cloudflare.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; color: white; font-family: sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; pointer-events: none; }
-        .hp { font-size: 24px; font-weight: bold; }
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #ui { padding: 10px; display: flex; gap: 50px; }
+        .hp { font-size: 20px; font-weight: bold; }
+        canvas { border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div id="p-hp" class="hp" style="color: #44f;">PLAYER: 100</div>
-        <div id="a-hp" class="hp" style="color: #f44;">AI: 100</div>
+        <div id="p-hp" class="hp" style="color: #55f;">PLAYER: 100</div>
+        <div id="a-hp" class="hp" style="color: #f55;">AI: 100</div>
     </div>
+
     <script>
-        // --- 1. SETUP ENGINE ---
-        const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint } = Matter;
+        const { Engine, Render, Runner, Bodies, Composite, Constraint } = Matter;
+
+        // --- 2. ENGINE SETUP ---
         const engine = Engine.create();
-        const world = engine.world;
         const render = Render.create({
             element: document.body,
             engine: engine,
-            options: { width: 800, height: 600, wireframes: false, background: '#ddd' }
+            options: {
+                width: 800,
+                height: 500,
+                wireframes: false, // OFF so we see colors!
+                background: '#222'
+            }
         });
 
-        Render.run(render);
-        Runner.run(Runner.create(), engine);
+        // --- 3. CREATING THE WORLD ---
+        // The Floor (Static = won't fall)
+        const ground = Bodies.rectangle(400, 480, 810, 60, { 
+            isStatic: true, 
+            render: { fillStyle: '#444' } 
+        });
 
-        // --- 2. GAME OBJECTS ---
-        const ground = Bodies.rectangle(400, 580, 810, 60, { isStatic: true, render: { fillStyle: '#666' } });
-        
-        function createRagdoll(x, y, color) {
-            const torso = Bodies.rectangle(x, y, 30, 60, { render: { fillStyle: color }, friction: 0.5 });
-            const head = Bodies.circle(x, y - 45, 15, { render: { fillStyle: color } });
+        // Function to build a "Stick Figure"
+        function createFighter(x, y, color) {
+            const torso = Bodies.rectangle(x, y, 20, 50, { render: { fillStyle: color } });
+            const head = Bodies.circle(x, y - 40, 15, { render: { fillStyle: color } });
             
             const neck = Constraint.create({
-                bodyA: torso, bodyB: head, 
-                pointA: { x: 0, y: -30 }, pointB: { x: 0, y: 15 },
-                stiffness: 0.6, length: 2
+                bodyA: torso, bodyB: head,
+                pointA: { x: 0, y: -25 }, pointB: { x: 0, y: 15 },
+                stiffness: 0.2, length: 5
             });
 
-            Composite.add(world, [torso, head, neck]);
-            return { torso, head, health: 100 };
+            Composite.add(engine.world, [torso, head, neck]);
+            return { torso, head };
         }
 
-        const player = createRagdoll(200, 400, '#44f');
-        const ai = createRagdoll(600, 400, '#f44');
-        Composite.add(world, [ground]);
+        const player = createFighter(200, 300, '#55f');
+        const ai = createFighter(600, 300, '#f55');
 
-        // --- 3. CONTROLS ---
+        Composite.add(engine.world, [ground]);
+
+        // --- 4. START EVERYTHING ---
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // --- 5. CONTROLS ---
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'a') Matter.Body.applyForce(player.torso, player.torso.position, {x: -0.02, y: 0});
-            if (e.key === 'd') Matter.Body.applyForce(player.torso, player.torso.position, {x: 0.02, y: 0});
-            if (e.key === 'w') Matter.Body.applyForce(player.torso, player.torso.position, {x: 0, y: -0.05});
+            if (e.key === 'a') Matter.Body.applyForce(player.torso, player.torso.position, {x: -0.01, y: 0});
+            if (e.key === 'd') Matter.Body.applyForce(player.torso, player.torso.position, {x: 0.01, y: 0});
+            if (e.key === 'w') Matter.Body.applyForce(player.torso, player.torso.position, {x: 0, y: -0.04});
         });
-
-        // --- 4. GAME LOOP ---
-        (function update() {
-            // Simple AI follow logic
-            const dist = player.torso.position.x - ai.torso.position.x;
-            if (Math.abs(dist) > 50) {
-                Matter.Body.applyForce(ai.torso, ai.torso.position, {x: dist > 0 ? 0.01 : -0.01, y: 0});
-            }
-            requestAnimationFrame(update);
-        })();
     </script>
 </body>
 </html>
