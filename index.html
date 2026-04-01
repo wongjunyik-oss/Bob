@@ -3,15 +3,21 @@
 <head>
     <meta charset="utf-8">
     <title>Ragdoll Fighter</title>
-    <script src="https://github.io"></script>
+
+    <!-- Load pygbag runtime -->
+    <script src="https://pygame-web.github.io/pygbag/pygbag.js"></script>
 </head>
+
 <body>
     <div id="pygbag" style="width:800px; height:600px; margin:auto;"></div>
+
     <script>
         window.onload = async () => {
-            // Ensure the filename matches exactly
-            await pygbag.start("main.py"); 
-        }
+            await pygbag.start({
+                id: "pygbag",
+                script: "main.py"
+            });
+        };
     </script>
 </body>
 </html>
