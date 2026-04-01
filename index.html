@@ -1,23 +1,147 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Ragdoll Fighter</title>
-
-    <!-- Load pygbag runtime -->
-    <script src="https://pygame-web.github.io/pygbag/pygbag.js"></script>
+<meta charset="utf-8">
+<title>Ragdoll Fighter (Web)</title>
+<style>
+    body { margin:0; background:#ddd; }
+    canvas { display:block; margin:auto; background:#eee; }
+</style>
 </head>
-
 <body>
-    <div id="pygbag" style="width:800px; height:600px; margin:auto;"></div>
 
-    <script>
-        window.onload = async () => {
-            await pygbag.start({
-                id: "pygbag",
-                script: "main.py"
-            });
-        };
-    </script>
+<canvas id="game" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let keys = {};
+
+// --- PLAYER CLASS ---
+class Fighter {
+    constructor(x, color, isPlayer=true) {
+        this.x = x;
+        this.y = 500;
+        this.vx = 0;
+        this.vy = 0;
+        this.color = color;
+        this.health = 100;
+        this.isPlayer = isPlayer;
+    }
+
+    update() {
+        // gravity
+        this.vy += 0.5;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // ground
+        if (this.y > 500) {
+            this.y = 500;
+            this.vy = 0;
+        }
+
+        // friction
+        this.vx *= 0.9;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+
+        // head
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - 40, 10, 0, Math.PI*2);
+        ctx.fill();
+
+        // body
+        ctx.fillRect(this.x - 5, this.y - 40, 10, 30);
+
+        // arms
+        ctx.fillRect(this.x - 20, this.y - 20, 40, 5);
+
+        // legs
+        ctx.fillRect(this.x - 10, this.y - 10, 5, 20);
+        ctx.fillRect(this.x + 5, this.y - 10, 5, 20);
+    }
+
+    move(dir) {
+        this.vx += dir * 1.5;
+    }
+
+    jump() {
+        if (this.y >= 500) {
+            this.vy = -10;
+        }
+    }
+
+    punch(target) {
+        let dist = Math.abs(this.x - target.x);
+        if (dist < 60) {
+            target.health -= 5;
+        }
+    }
+}
+
+// --- INIT ---
+let player = new Fighter(200, "blue", true);
+let ai = new Fighter(600, "red", false);
+
+// --- INPUT ---
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// --- GAME LOOP ---
+function update() {
+    ctx.clearRect(0,0,800,600);
+
+    // PLAYER INPUT
+    if (keys["a"] || keys["ArrowLeft"]) player.move(-1);
+    if (keys["d"] || keys["ArrowRight"]) player.move(1);
+    if (keys["w"] || keys["ArrowUp"]) player.jump();
+    if (keys["f"]) player.punch(ai);
+
+    // AI
+    let dist = player.x - ai.x;
+
+    if (Math.abs(dist) > 70) {
+        ai.move(dist > 0 ? 1 : -1);
+    }
+
+    if (Math.abs(dist) < 60 && Math.random() < 0.02) {
+        ai.punch(player);
+    }
+
+    // UPDATE
+    player.update();
+    ai.update();
+
+    // DRAW
+    player.draw();
+    ai.draw();
+
+    // UI
+    ctx.fillStyle = "black";
+    ctx.fillText("Player HP: " + player.health, 20, 20);
+    ctx.fillText("AI HP: " + ai.health, 650, 20);
+
+    // WIN CONDITION
+    if (player.health <= 0 || ai.health <= 0) {
+        ctx.fillStyle = "black";
+        ctx.font = "30px Arial";
+        ctx.fillText(
+            player.health <= 0 ? "YOU LOST" : "YOU WIN",
+            330, 300
+        );
+        return;
+    }
+
+    requestAnimationFrame(update);
+}
+
+update();
+</script>
+
 </body>
 </html>
