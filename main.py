@@ -1,28 +1,32 @@
-import http.server
-import socketserver
 import webbrowser
-import threading
+import os
 import time
 
-PORT = 8000
+def menu():
+    os.system('cls' if os.name == 'nt' else 'clear') # Clears the screen
+    print("---------------------------------")
+    print("    RAGDOLL BRAWLER - PERSONAL   ")
+    print("---------------------------------")
+    print("[1] Play Game (Browser)")
+    print("[2] Visit My GitHub Profile")
+    print("[3] View Controls")
+    print("[4] Exit")
+    print("---------------------------------")
 
-def start_server():
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", PORT), handler) as httpd:
-        print(f"Serving at http://localhost:{PORT}")
-        httpd.serve_forever()
+    choice = input("Select an option: ")
+    
+    if choice == '1':
+        path = os.path.abspath("index.html")
+        webbrowser.open(f"file://{path}")
+        print("Launching...")
+    elif choice == '2':
+        webbrowser.open("https://github.com") # Put your link here!
+    elif choice == '3':
+        print("\nCONTROLS:\nA/D - Move\nW - Jump\nSpace - Punch (Coming Soon)")
+        input("\nPress Enter to return...")
+        menu()
+    else:
+        print("Goodbye!")
 
 if __name__ == "__main__":
-    # Start the server in a separate thread so it doesn't block the script
-    threading.Thread(target=start_server, daemon=True).start()
-    
-    # Give the server a second to start, then open the browser
-    time.sleep(1)
-    webbrowser.open(f"http://localhost:{PORT}")
-    
-    print("Press Ctrl+C to stop the server.")
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\nShutting down server...")
+    menu()
