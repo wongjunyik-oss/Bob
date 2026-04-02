@@ -1,113 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Sandbox: Random Weapons</title>
+    <title>Ragdoll Sandbox: Combat Edition</title>
+    <!-- Use a reliable CDN for school devices -->
     <script src="https://cloudflare.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #0f0f1b; font-family: sans-serif; color: white; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px; pointer-events: none; border: 1px solid #333; }
-        kbd { background: #333; padding: 2px 6px; border-radius: 4px; border: 1px solid #666; font-family: monospace; }
+        body { margin: 0; overflow: hidden; background: #0b0b16; font-family: sans-serif; color: white; }
+        #ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; pointer-events: none; z-index: 10; }
+        .stats { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #444; min-width: 120px; text-align: center; }
+        .bar-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; margin-top: 5px; }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
+        /* Force the game canvas to be visible */
+        canvas { display: block; margin: 0 auto; border: 2px solid #ff00ff; background: #1a1a2e !important; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2 style="margin:0 0 10px 0; color: #4ecca3;">Physics Armory</h2>
-        <p><kbd>W</kbd><kbd>A</kbd><kbd>D</kbd> - Move</p>
-        <p><kbd>F</kbd> - Shockwave</p>
-        <p><kbd>R</kbd> - New Weapons (Reset)</p>
-        <p><i>Drag the characters to see the physics!</i></p>
+        <div class="stats">
+            <div style="color: #4ecca3">P1 (Green)</div>
+            <div class="bar-bg"><div id="p1-fill" class="bar-fill" style="background: #4ecca3"></div></div>
+        </div>
+        <div class="stats">
+            <div style="color: #ff4757">P2 (Red)</div>
+            <div class="bar-bg"><div id="p2-fill" class="bar-fill" style="background: #ff4757"></div></div>
+        </div>
     </div>
 
     <script>
-        const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint, Body } = Matter;
+        // THIS IS THE FIX: Wait until EVERYTHING loads before starting
+        window.onload = function() {
+            const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Body, Events } = Matter;
 
-        const engine = Engine.create();
-        const world = engine.world;
+            const engine = Engine.create();
+            const world = engine.world;
 
-        const render = Render.create({
-            element: document.body,
-            engine: engine,
-            options: {
-                width: window.innerWidth,
-                height: window.innerHeight,
-                wireframes: false,
-                background: '#0f0f1b'
-            }
-        });
-
-        // 1. Random Weapon Generator
-        function createRandomWeapon(x, y, group) {
-            const types = ['sword', 'hammer', 'shield'];
-            const type = types[Math.floor(Math.random() * types.length)];
-            
-            let weaponBody;
-            if (type === 'sword') {
-                weaponBody = Bodies.rectangle(x + 40, y, 80, 10, { 
-                    collisionFilter: { group: group },
-                    render: { fillStyle: '#bdc3c7' },
-                    label: 'sword'
-                });
-            } else if (type === 'hammer') {
-                const handle = Bodies.rectangle(x + 30, y, 60, 8, { collisionFilter: { group: group } });
-                const head = Bodies.rectangle(x + 60, y, 30, 40, { collisionFilter: { group: group } });
-                weaponBody = Body.create({ 
-                    parts: [handle, head], 
-                    render: { fillStyle: '#7f8c8d' } 
-                });
-            } else {
-                weaponBody = Bodies.rectangle(x + 30, y, 15, 80, { 
-                    collisionFilter: { group: group },
-                    render: { fillStyle: '#2980b9' } 
-                });
-            }
-            return weaponBody;
-        }
-
-        // 2. Fighter with Compound Weapon
-        function createFighter(x, y, color) {
-            const group = Body.nextGroup(true);
-            const torso = Bodies.rectangle(x, y, 30, 60, { collisionFilter: { group: group }, render: { fillStyle: color } });
-            const head = Bodies.circle(x, y - 45, 18, { collisionFilter: { group: group }, render: { fillStyle: color } });
-            
-            // Generate and "Weld" weapon to torso
-            const weapon = createRandomWeapon(x, y, group);
-            const compoundFighter = Body.create({
-                parts: [torso, head, weapon],
-                friction: 0.5
+            const render = Render.create({
+                element: document.body,
+                engine: engine,
+                options: {
+                    width: 800,
+                    height: 600,
+                    wireframes: false, // MUST be false to see colors
+                    background: '#1a1a2e'
+                }
             });
 
-            Composite.add(world, compoundFighter);
-            return compoundFighter;
-        }
+            // 1. Create Floor and Walls
+            const floor = Bodies.rectangle(400, 580, 810, 60, { isStatic: true, render: { fillStyle: '#333' } });
+            Composite.add(world, floor);
 
-        // 3. Environment
-        const floor = Bodies.rectangle(window.innerWidth/2, window.innerHeight-20, window.innerWidth, 40, { isStatic: true, render: { fillStyle: '#222' } });
-        createFighter(200, 300, '#4ecca3');
-        createFighter(600, 300, '#e94560');
-
-        Composite.add(world, floor);
-
-        // 4. Interactive Controls
-        const mouse = Mouse.create(render.canvas);
-        const mouseConstraint = MouseConstraint.create(engine, {
-            mouse: mouse,
-            constraint: { stiffness: 0.2, render: { visible: false } }
-        });
-        Composite.add(world, mouseConstraint);
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'r') location.reload();
-            if (e.key === 'f') {
-                Composite.allBodies(world).forEach(b => {
-                    if(!b.isStatic) Body.applyForce(b, b.position, {x: (Math.random()-0.5)*0.2, y: -0.2});
+            // 2. Fighter Function
+            function createFighter(x, y, color, id) {
+                const group = Body.nextGroup(true);
+                const torso = Bodies.rectangle(x, y, 30, 60, { collisionFilter: { group: group }, render: { fillStyle: color } });
+                const head = Bodies.circle(x, y - 45, 18, { collisionFilter: { group: group }, render: { fillStyle: color } });
+                
+                // Random Weapon
+                const weapon = Bodies.rectangle(x + 40, y, 70, 12, { 
+                    collisionFilter: { group: group }, 
+                    render: { fillStyle: '#aaa' } 
                 });
-            }
-        });
 
-        Render.run(render);
-        Runner.run(Runner.create(), engine);
+                const fighter = Body.create({ parts: [torso, head, weapon], friction: 0.5 });
+                fighter.health = 100;
+                fighter.id_tag = id;
+                
+                Composite.add(world, fighter);
+                return fighter;
+            }
+
+            const p1 = createFighter(250, 400, '#4ecca3', 'p1');
+            const p2 = createFighter(550, 400, '#ff4757', 'p2');
+
+            // 3. Mouse Interaction (Dragging)
+            const mouse = Mouse.create(render.canvas);
+            const mouseConstraint = MouseConstraint.create(engine, {
+                mouse: mouse,
+                constraint: { stiffness: 0.1, render: { visible: false } }
+            });
+            Composite.add(world, mouseConstraint);
+
+            // 4. Combat Logic
+            Events.on(engine, 'collisionStart', (event) => {
+                event.pairs.forEach((pair) => {
+                    const force = pair.collision.depth * 10;
+                    if (force > 5) {
+                        const target = [p1, p2].find(p => p.parts.includes(pair.bodyA) || p.parts.includes(pair.bodyB));
+                        if (target) {
+                            target.health -= force;
+                            document.getElementById(`${target.id_tag}-fill`).style.width = Math.max(0, target.health) + "%";
+                        }
+                    }
+                });
+            });
+
+            // 5. Start Everything
+            Render.run(render);
+            Runner.run(Runner.create(), engine);
+
+            console.log("Game Started Successfully!");
+        };
     </script>
 </body>
 </html>
