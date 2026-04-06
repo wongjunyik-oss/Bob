@@ -26,7 +26,7 @@
     </div>
 
     <script>
-        /*!
+     /*!
  * matter-js 0.20.0 by @liabru
  * http://brm.io/matter-js/
  * License MIT
@@ -43,6 +43,11 @@
         }
 
         window.onload = function() {
+            if (typeof Matter === 'undefined') {
+                alert("Library load failed. Ensure you pasted the Matter.js code correctly!");
+                return;
+            }
+
             const { Engine, Render, Runner, Bodies, Composite, Body, Events, Vector } = Matter;
             const engine = Engine.create();
             const render = Render.create({
