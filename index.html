@@ -1,123 +1,189 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ragdoll Sandbox: Combat Edition</title>
-    <!-- FIXED: Added the actual Matter.js library -->
+    <title>Ragdoll Sandbox: Chaos Edition</title>
+    <!-- Stable Matter.js CDN -->
     <script src="https://cloudflare.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #0b0b16; font-family: sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        body { margin: 0; overflow: hidden; background: #0b0b16; font-family: 'Segoe UI', sans-serif; color: white; }
         #ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; pointer-events: none; z-index: 10; }
         .stats { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #444; min-width: 120px; text-align: center; }
         .bar-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; margin-top: 5px; }
         .bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
-        canvas { border: 2px solid #ff00ff; box-shadow: 0 0 20px rgba(255, 0, 255, 0.2); }
+        
+        #toolbar { position: absolute; left: 20px; top: 100px; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px; border: 1px solid #ff00ff; z-index: 20; pointer-events: auto; }
+        button { background: #333; color: white; border: 1px solid #ff00ff; padding: 8px; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+        button:hover { background: #ff00ff; color: black; }
+        button.active { background: #ff00ff; color: black; font-weight: bold; }
+        
+        /* Game Container */
+        #game-container { width: 100vw; height: 100vh; cursor: crosshair; }
+        .hint { position: absolute; bottom: 10px; width: 100%; text-align: center; color: #666; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <div class="stats">
-            <div style="color: #4ecca3">P1 (Green)</div>
+        <div class="stats" id="p1-card">
+            <div style="color: #4ecca3">P1 (WASD)</div>
             <div class="bar-bg"><div id="p1-fill" class="bar-fill" style="background: #4ecca3"></div></div>
         </div>
-        <div class="stats">
-            <div style="color: #ff4757">P2 (Red)</div>
+        <div class="stats" id="p2-card">
+            <div style="color: #ff4757">P2 (Arrows)</div>
             <div class="bar-bg"><div id="p2-fill" class="bar-fill" style="background: #ff4757"></div></div>
         </div>
     </div>
 
+    <div id="toolbar">
+        <div style="font-size: 11px; margin-bottom: 5px; color: #ff00ff; text-align:center;">CLICK TOOL</div>
+        <button id="btn-boom" class="active" onclick="setTool('boom')">Explosion</button>
+        <button id="btn-spawn" onclick="setTool('spawn')">Spawn Box</button>
+        <button id="btn-heal" onclick="setTool('heal')">Respawn NPC</button>
+    </div>
+
+    <div id="game-container"></div>
+    <div class="hint">Click to use tool | P1: WASD | P2: Arrows</div>
+
     <script>
-        window.onload = function() {
-            // Destructure Matter.js components
-            const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Body, Events } = Matter;
+        let currentTool = 'boom';
+        function setTool(t) {
+            currentTool = t;
+            document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById('btn-' + t);
+            if(activeBtn) activeBtn.classList.add('active');
+        }
+
+        // Wait for Matter.js to load and DOM to be ready
+        window.addEventListener('load', function() {
+            if (typeof Matter === 'undefined') {
+                console.error("Matter.js failed to load!");
+                return;
+            }
+
+            const { Engine, Render, Runner, Bodies, Composite, Mouse, Body, Events, Vector } = Matter;
 
             const engine = Engine.create();
             const world = engine.world;
+            const container = document.getElementById('game-container');
 
             const render = Render.create({
-                element: document.body,
+                element: container,
                 engine: engine,
-                options: {
-                    width: 800,
-                    height: 600,
-                    wireframes: false, // Set to false to see the colors!
-                    background: '#1a1a2e'
+                options: { 
+                    width: window.innerWidth, 
+                    height: window.innerHeight, 
+                    wireframes: false, 
+                    background: '#0b0b16' 
                 }
             });
 
-            // 1. Create Floor and Walls
-            const floor = Bodies.rectangle(400, 585, 810, 30, { 
+            // 1. Environment
+            const ground = Bodies.rectangle(window.innerWidth/2, window.innerHeight - 30, window.innerWidth, 60, { 
                 isStatic: true, 
-                render: { fillStyle: '#333' } 
+                render: { fillStyle: '#1a1a2e' } 
             });
-            Composite.add(world, floor);
+            Composite.add(world, ground);
 
-            // 2. Fighter Function
+            // 2. NPC Factory
             function createFighter(x, y, color, id) {
                 const group = Body.nextGroup(true);
-                
-                // Torso and Head
                 const torso = Bodies.rectangle(x, y, 30, 60, { collisionFilter: { group: group }, render: { fillStyle: color } });
                 const head = Bodies.circle(x, y - 45, 18, { collisionFilter: { group: group }, render: { fillStyle: color } });
-                
-                // Weapon (Sword/Club)
-                const weapon = Bodies.rectangle(x + 40, y, 70, 12, { 
-                    collisionFilter: { group: group }, 
-                    render: { fillStyle: '#cccccc' } 
-                });
+                const weapon = Bodies.rectangle(x + 35, y, 60, 10, { collisionFilter: { group: group }, render: { fillStyle: '#ccc' } });
 
-                // Combine into one body
-                const fighter = Body.create({ 
-                    parts: [torso, head, weapon], 
-                    friction: 0.5,
-                    restitution: 0.5 
-                });
-                
+                const fighter = Body.create({ parts: [torso, head, weapon], friction: 0.1, frictionAir: 0.02 });
                 fighter.health = 100;
                 fighter.id_tag = id;
+                fighter.isDead = false;
                 
                 Composite.add(world, fighter);
                 return fighter;
             }
 
-            const p1 = createFighter(250, 400, '#4ecca3', 'p1');
-            const p2 = createFighter(550, 400, '#ff4757', 'p2');
+            let p1 = createFighter(window.innerWidth * 0.3, 400, '#4ecca3', 'p1');
+            let p2 = createFighter(window.innerWidth * 0.7, 400, '#ff4757', 'p2');
 
-            // 3. Mouse Interaction (Grab and Toss)
-            const mouse = Mouse.create(render.canvas);
-            const mouseConstraint = MouseConstraint.create(engine, {
-                mouse: mouse,
-                constraint: { 
-                    stiffness: 0.2, 
-                    render: { visible: false } 
+            // 3. Tools
+            container.addEventListener('mousedown', (e) => {
+                const rect = container.getBoundingClientRect();
+                const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                
+                if (currentTool === 'boom') {
+                    const bodies = Composite.allBodies(world);
+                    bodies.forEach(body => {
+                        if (body.isStatic) return;
+                        const dist = Vector.magnitude(Vector.sub(body.position, mousePos));
+                        if (dist < 200) {
+                            const force = (1 - dist/200) * 0.25;
+                            const dir = Vector.normalise(Vector.sub(body.position, mousePos));
+                            Body.applyForce(body, body.position, Vector.mult(dir, force));
+                        }
+                    });
+                } else if (currentTool === 'spawn') {
+                    const box = Bodies.rectangle(mousePos.x, mousePos.y, 40, 40, { render: { fillStyle: '#d35400' } });
+                    Composite.add(world, box);
+                } else if (currentTool === 'heal') {
+                    [p1, p2].forEach(p => {
+                        p.health = 100;
+                        p.isDead = false;
+                        Body.setPosition(p, { x: p.id_tag === 'p1' ? window.innerWidth * 0.3 : window.innerWidth * 0.7, y: 100 });
+                        updateUI(p);
+                    });
                 }
             });
-            Composite.add(world, mouseConstraint);
-            render.mouse = mouse; // Sync mouse with renderer
 
-            // 4. Combat Logic
+            // 4. Controls
+            const keys = {};
+            window.addEventListener('keydown', (e) => keys[e.code] = true);
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+            Events.on(engine, 'beforeUpdate', () => {
+                const move = 0.005;
+                if (!p1.isDead) {
+                    if (keys['KeyA']) Body.applyForce(p1, p1.position, { x: -move, y: 0 });
+                    if (keys['KeyD']) Body.applyForce(p1, p1.position, { x: move, y: 0 });
+                    if (keys['KeyW'] && Math.abs(p1.velocity.y) < 0.5) Body.applyForce(p1, p1.position, { x: 0, y: -0.12 });
+                    Body.setAngle(p1, p1.angle * 0.8); 
+                }
+                if (!p2.isDead) {
+                    if (keys['ArrowLeft']) Body.applyForce(p2, p2.position, { x: -move, y: 0 });
+                    if (keys['ArrowRight']) Body.applyForce(p2, p2.position, { x: move, y: 0 });
+                    if (keys['ArrowUp'] && Math.abs(p2.velocity.y) < 0.5) Body.applyForce(p2, p2.position, { x: 0, y: -0.12 });
+                    Body.setAngle(p2, p2.angle * 0.8);
+                }
+            });
+
+            function updateUI(p) {
+                const bar = document.getElementById(`${p.id_tag}-fill`);
+                if(bar) bar.style.width = Math.max(0, p.health) + "%";
+            }
+
             Events.on(engine, 'collisionStart', (event) => {
-                event.pairs.forEach((pair) => {
-                    // Check if a collision is hard enough to cause damage
-                    const force = pair.collision.depth * 5;
-                    if (force > 2) {
+                event.pairs.forEach(pair => {
+                    const force = pair.collision.depth * 10;
+                    if (force > 5) {
                         const target = [p1, p2].find(p => p.parts.includes(pair.bodyA) || p.parts.includes(pair.bodyB));
-                        if (target) {
+                        if (target && !target.isDead) {
                             target.health -= force;
-                            const bar = document.getElementById(`${target.id_tag}-fill`);
-                            if (bar) bar.style.width = Math.max(0, target.health) + "%";
+                            if (target.health <= 0) {
+                                target.isDead = true;
+                                target.health = 0;
+                                setTimeout(() => {
+                                    target.health = 100;
+                                    target.isDead = false;
+                                    Body.setPosition(target, { x: target.id_tag === 'p1' ? 200 : window.innerWidth-200, y: 100 });
+                                    updateUI(target);
+                                }, 3000);
+                            }
+                            updateUI(target);
                         }
                     }
                 });
             });
 
-            // 5. Run the engine and renderer
             Render.run(render);
-            const runner = Runner.create();
-            Runner.run(runner, engine);
-
-            console.log("Ragdoll Combat Loaded!");
-        };
+            Runner.run(Runner.create(), engine);
+        });
     </script>
 </body>
 </html>
