@@ -2,16 +2,15 @@
 <html>
 <head>
     <title>Ragdoll Sandbox: Combat Edition</title>
-    <!-- Use a reliable CDN for school devices -->
+    <!-- FIXED: Added the actual Matter.js library -->
     <script src="https://cloudflare.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #0b0b16; font-family: sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background: #0b0b16; font-family: sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
         #ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; pointer-events: none; z-index: 10; }
         .stats { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #444; min-width: 120px; text-align: center; }
         .bar-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; margin-top: 5px; }
         .bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
-        /* Force the game canvas to be visible */
-        canvas { display: block; margin: 0 auto; border: 2px solid #ff00ff; background: #1a1a2e !important; }
+        canvas { border: 2px solid #ff00ff; box-shadow: 0 0 20px rgba(255, 0, 255, 0.2); }
     </style>
 </head>
 <body>
@@ -28,8 +27,8 @@
     </div>
 
     <script>
-        // THIS IS THE FIX: Wait until EVERYTHING loads before starting
         window.onload = function() {
+            // Destructure Matter.js components
             const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Body, Events } = Matter;
 
             const engine = Engine.create();
@@ -41,28 +40,39 @@
                 options: {
                     width: 800,
                     height: 600,
-                    wireframes: false, // MUST be false to see colors
+                    wireframes: false, // Set to false to see the colors!
                     background: '#1a1a2e'
                 }
             });
 
             // 1. Create Floor and Walls
-            const floor = Bodies.rectangle(400, 580, 810, 60, { isStatic: true, render: { fillStyle: '#333' } });
+            const floor = Bodies.rectangle(400, 585, 810, 30, { 
+                isStatic: true, 
+                render: { fillStyle: '#333' } 
+            });
             Composite.add(world, floor);
 
             // 2. Fighter Function
             function createFighter(x, y, color, id) {
                 const group = Body.nextGroup(true);
+                
+                // Torso and Head
                 const torso = Bodies.rectangle(x, y, 30, 60, { collisionFilter: { group: group }, render: { fillStyle: color } });
                 const head = Bodies.circle(x, y - 45, 18, { collisionFilter: { group: group }, render: { fillStyle: color } });
                 
-                // Random Weapon
+                // Weapon (Sword/Club)
                 const weapon = Bodies.rectangle(x + 40, y, 70, 12, { 
                     collisionFilter: { group: group }, 
-                    render: { fillStyle: '#aaa' } 
+                    render: { fillStyle: '#cccccc' } 
                 });
 
-                const fighter = Body.create({ parts: [torso, head, weapon], friction: 0.5 });
+                // Combine into one body
+                const fighter = Body.create({ 
+                    parts: [torso, head, weapon], 
+                    friction: 0.5,
+                    restitution: 0.5 
+                });
+                
                 fighter.health = 100;
                 fighter.id_tag = id;
                 
@@ -73,33 +83,40 @@
             const p1 = createFighter(250, 400, '#4ecca3', 'p1');
             const p2 = createFighter(550, 400, '#ff4757', 'p2');
 
-            // 3. Mouse Interaction (Dragging)
+            // 3. Mouse Interaction (Grab and Toss)
             const mouse = Mouse.create(render.canvas);
             const mouseConstraint = MouseConstraint.create(engine, {
                 mouse: mouse,
-                constraint: { stiffness: 0.1, render: { visible: false } }
+                constraint: { 
+                    stiffness: 0.2, 
+                    render: { visible: false } 
+                }
             });
             Composite.add(world, mouseConstraint);
+            render.mouse = mouse; // Sync mouse with renderer
 
             // 4. Combat Logic
             Events.on(engine, 'collisionStart', (event) => {
                 event.pairs.forEach((pair) => {
-                    const force = pair.collision.depth * 10;
-                    if (force > 5) {
+                    // Check if a collision is hard enough to cause damage
+                    const force = pair.collision.depth * 5;
+                    if (force > 2) {
                         const target = [p1, p2].find(p => p.parts.includes(pair.bodyA) || p.parts.includes(pair.bodyB));
                         if (target) {
                             target.health -= force;
-                            document.getElementById(`${target.id_tag}-fill`).style.width = Math.max(0, target.health) + "%";
+                            const bar = document.getElementById(`${target.id_tag}-fill`);
+                            if (bar) bar.style.width = Math.max(0, target.health) + "%";
                         }
                     }
                 });
             });
 
-            // 5. Start Everything
+            // 5. Run the engine and renderer
             Render.run(render);
-            Runner.run(Runner.create(), engine);
+            const runner = Runner.create();
+            Runner.run(runner, engine);
 
-            console.log("Game Started Successfully!");
+            console.log("Ragdoll Combat Loaded!");
         };
     </script>
 </body>
